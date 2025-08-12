@@ -51,7 +51,7 @@
       "type": "secureString",
       "defaultValue": "",
       "metadata": {
-        "description": "HMAC key for signing alerts (generated if not provided)"
+        "description": "HMAC key generated in DecoyLayer portal (copy from previous step)"
       }
     },
     "deploymentId": {
