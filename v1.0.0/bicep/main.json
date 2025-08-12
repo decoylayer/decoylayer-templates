@@ -76,6 +76,7 @@
   "variables": {
     "resourceGroupName": "[concat('dl-', uniqueString(parameters('tenantId')), '-rg')]",
     "keyVaultName": "[concat('dl-', uniqueString(parameters('tenantId')), '-kv')]",
+    "keyVaultUri": "[concat('https://', concat('dl-', uniqueString(parameters('tenantId')), '-kv'), '.vault.azure.net/')]",
     "eventHubNamespaceName": "[concat('dl-', uniqueString(parameters('tenantId')), '-ehns')]",
     "eventHubName": "decoylayer-logs",
     "functionAppName": "[concat('dl-', uniqueString(parameters('tenantId')), '-func')]",
@@ -274,10 +275,14 @@
                     },
                     {
                       "name": "FUNCTIONS_WORKER_RUNTIME",
-                      "value": "powershell"
+                      "value": "dotnet"
                     },
                     {
-                      "name": "DECOYLAYER_RELAY_URL", 
+                      "name": "WEBSITE_RUN_FROM_PACKAGE", 
+                      "value": "https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller.zip"
+                    },
+                    {
+                      "name": "DECOYLAYER_INGEST_URL",
                       "value": "[parameters('relayOutboundUrl')]"
                     },
                     {
@@ -287,6 +292,18 @@
                     {
                       "name": "DECOYLAYER_DEPLOYMENT_ID",
                       "value": "[parameters('deploymentId')]"
+                    },
+                    {
+                      "name": "EVENTHUB_CONNECTION_STRING",
+                      "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2023-11-01-preview').primaryKey)]"
+                    },
+                    {
+                      "name": "KEY_VAULT_NAME",
+                      "value": "[variables('keyVaultName')]"
+                    },
+                    {
+                      "name": "HMAC_SECRET",
+                      "value": "[concat('@Microsoft.KeyVault(SecretUri=', variables('keyVaultUri'), 'secrets/dl-hmac/)')]"
                     }
                   ],
                   "minimumElasticInstanceCount": 0
