@@ -1,0 +1,194 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "isWizard": false,
+      "basics": {
+        "subscription": {
+          "constraints": {
+            "validations": [
+              {
+                "isValid": "[not(equals(subscription().subscriptionId, ''))]",
+                "message": "Please select a valid subscription."
+              }
+            ]
+          }
+        },
+        "resourceGroup": {
+          "allowExisting": true
+        }
+      }
+    },
+    "basics": [
+      {
+        "name": "deploymentName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Deployment Name",
+        "defaultValue": "[concat('decoylayer-', take(guid(), 8))]",
+        "toolTip": "Unique name for this DecoyLayer deployment",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-z0-9-]{3,24}$",
+          "validationMessage": "Name must be 3-24 characters, lowercase letters, numbers, and hyphens only."
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "features",
+        "label": "Detection Features",
+        "elements": [
+          {
+            "name": "featuresInfo",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Select which deception technologies to deploy. Start with recommended features for best coverage.",
+              "uri": "https://docs.decoylayer.com/deployment/features"
+            }
+          },
+          {
+            "name": "identityDecoys",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Service Principal Decoys (Recommended)",
+            "defaultValue": true,
+            "toolTip": "Create fake Entra applications with service principals protected by Conditional Access policies.",
+            "constraints": {
+              "required": false
+            }
+          },
+          {
+            "name": "mailboxBec",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "VIP Mailbox Decoys (Recommended)", 
+            "defaultValue": true,
+            "toolTip": "Deploy high-value mailbox decoys to detect BEC (Business Email Compromise) attempts.",
+            "constraints": {
+              "required": false
+            }
+          },
+          {
+            "name": "sharepointDocs",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "SharePoint Document Traps",
+            "defaultValue": false,
+            "toolTip": "Place honey documents in SharePoint with access monitoring.",
+            "constraints": {
+              "required": false
+            }
+          },
+          {
+            "name": "teamsTraps",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Teams Channel Traps",
+            "defaultValue": false,
+            "toolTip": "Monitor Teams channels and chats for suspicious activity.",
+            "constraints": {
+              "required": false
+            }
+          },
+          {
+            "name": "keyvaultHoney",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Key Vault Honey Tokens",
+            "defaultValue": false,
+            "toolTip": "Place decoy secrets in Azure Key Vault to detect unauthorized access.",
+            "constraints": {
+              "required": false
+            }
+          },
+          {
+            "name": "devopsTokens",
+            "type": "Microsoft.Common.CheckBox",
+            "label": "Azure DevOps Token Decoys",
+            "defaultValue": false,
+            "toolTip": "Create fake personal access tokens in Azure DevOps.",
+            "constraints": {
+              "required": false
+            }
+          }
+        ]
+      },
+      {
+        "name": "configuration",
+        "label": "Configuration", 
+        "elements": [
+          {
+            "name": "configInfo",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Configure deployment settings and integration parameters.",
+              "uri": "https://docs.decoylayer.com/deployment/configuration"
+            }
+          },
+          {
+            "name": "location",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Azure Region",
+            "defaultValue": "West Europe",
+            "toolTip": "Azure region where DecoyLayer infrastructure will be deployed.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "West Europe",
+                  "value": "westeurope"
+                },
+                {
+                  "label": "East US", 
+                  "value": "eastus"
+                },
+                {
+                  "label": "West US 2",
+                  "value": "westus2"
+                },
+                {
+                  "label": "North Europe",
+                  "value": "northeurope"
+                }
+              ],
+              "required": true
+            }
+          },
+          {
+            "name": "relayUrl",
+            "type": "Microsoft.Common.TextBox",
+            "label": "DecoyLayer Ingest URL",
+            "defaultValue": "https://portal.decoylayer.com/ingest",
+            "toolTip": "URL where alerts will be sent. Use your DecoyLayer portal URL.",
+            "constraints": {
+              "required": true,
+              "regex": "^https://[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(/.*)?$",
+              "validationMessage": "Must be a valid HTTPS URL."
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "tenantId": "[subscription().tenantId]",
+      "location": "[steps('configuration').location]",
+      "deploymentId": "[basics('deploymentName')]",
+      "features": {
+        "identity_decoys": "[steps('features').identityDecoys]",
+        "mailbox_bec": "[steps('features').mailboxBec]", 
+        "sharepoint_docs": "[steps('features').sharepointDocs]",
+        "teams_trap": "[steps('features').teamsTraps]",
+        "keyvault_honey": "[steps('features').keyvaultHoney]",
+        "devops_tokens": "[steps('features').devopsTokens]"
+      },
+      "relayOutboundUrl": "[steps('configuration').relayUrl]",
+      "tags": {
+        "Product": "DecoyLayer",
+        "Environment": "Customer",
+        "DeploymentName": "[basics('deploymentName')]",
+        "CreatedBy": "DecoyLayer-Portal",
+        "CreatedAt": "[utcNow()]"
+      }
+    }
+  }
+}

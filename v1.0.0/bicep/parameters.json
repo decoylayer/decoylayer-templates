@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "tenantId": {
+      "value": "YOUR_TENANT_ID"
+    },
+    "location": {
+      "value": "westeurope"
+    },
+    "features": {
+      "value": {
+        "identity_decoys": true,
+        "mailbox_bec": false,
+        "sharepoint_docs": false,
+        "teams_trap": false,
+        "keyvault_honey": false,
+        "devops_tokens": false
+      }
+    },
+    "relayOutboundUrl": {
+      "value": "https://portal.decoylayer.com/ingest"
+    },
+    "tags": {
+      "value": {
+        "Product": "DecoyLayer",
+        "Environment": "Customer",
+        "ManagedBy": "DecoyLayer",
+        "CostCenter": "Security"
+      }
+    }
+  }
+}

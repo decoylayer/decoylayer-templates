@@ -1,0 +1,336 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "DecoyLayer Infrastructure-as-Code Main Template - Deploys customer-owned components",
+    "author": "DecoyLayer",
+    "version": "1.0.0"
+  },
+  "parameters": {
+    "tenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "Target tenant ID for validation and decoy deployment"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westeurope",
+      "allowedValues": [
+        "eastus",
+        "westus2", 
+        "westeurope",
+        "northeurope"
+      ],
+      "metadata": {
+        "description": "Azure region for resource deployment"
+      }
+    },
+    "features": {
+      "type": "object",
+      "defaultValue": {
+        "identity_decoys": true,
+        "mailbox_bec": true,
+        "sharepoint_docs": false,
+        "teams_trap": false,
+        "keyvault_honey": false,
+        "devops_tokens": false
+      },
+      "metadata": {
+        "description": "Feature toggles for different decoy types"
+      }
+    },
+    "relayOutboundUrl": {
+      "type": "string",
+      "defaultValue": "https://portal.decoylayer.com/ingest",
+      "metadata": {
+        "description": "DecoyLayer ingest endpoint URL"
+      }
+    },
+    "hmacKey": {
+      "type": "secureString",
+      "defaultValue": "",
+      "metadata": {
+        "description": "HMAC key for signing alerts (generated if not provided)"
+      }
+    },
+    "deploymentId": {
+      "type": "string",
+      "defaultValue": "[uniqueString(parameters('tenantId'), utcNow())]",
+      "metadata": {
+        "description": "Unique deployment identifier"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "Product": "DecoyLayer",
+        "Environment": "Customer", 
+        "ManagedBy": "DecoyLayer"
+      },
+      "metadata": {
+        "description": "Resource tags"
+      }
+    }
+  },
+  "variables": {
+    "resourceGroupName": "[concat('dl-', uniqueString(parameters('tenantId')), '-rg')]",
+    "keyVaultName": "[concat('dl-', uniqueString(parameters('tenantId')), '-kv')]",
+    "eventHubNamespaceName": "[concat('dl-', uniqueString(parameters('tenantId')), '-ehns')]",
+    "eventHubName": "decoylayer-logs",
+    "functionAppName": "[concat('dl-', uniqueString(parameters('tenantId')), '-func')]",
+    "storageAccountName": "[concat('dl', uniqueString(parameters('tenantId')), 'st')]",
+    "appServicePlanName": "[concat('dl-', uniqueString(parameters('tenantId')), '-plan')]",
+    "deploymentTags": "[union(parameters('tags'), createObject('DeploymentId', parameters('deploymentId'), 'CreatedAt', utcNow()))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('deploymentTags')]",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "storageAccountDeployment",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "dependsOn": [
+        "[variables('resourceGroupName')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[variables('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[variables('deploymentTags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false,
+                "networkAcls": {
+                  "defaultAction": "Allow"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments", 
+      "apiVersion": "2022-09-01",
+      "name": "keyVaultDeployment",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "dependsOn": [
+        "[variables('resourceGroupName')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-02-01",
+              "name": "[variables('keyVaultName')]",
+              "location": "[parameters('location')]",
+              "tags": "[variables('deploymentTags')]",
+              "properties": {
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "tenantId": "[parameters('tenantId')]",
+                "enableRbacAuthorization": true,
+                "enablePurgeProtection": true,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 90,
+                "networkAcls": {
+                  "defaultAction": "Allow",
+                  "bypass": "AzureServices"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01", 
+      "name": "eventHubDeployment",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "dependsOn": [
+        "[variables('resourceGroupName')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.EventHub/namespaces",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[variables('eventHubNamespaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[variables('deploymentTags')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Standard",
+                "capacity": 1
+              },
+              "properties": {
+                "minimumTlsVersion": "1.2",
+                "isAutoInflateEnabled": false
+              }
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[concat(variables('eventHubNamespaceName'), '/', variables('eventHubName'))]",
+              "dependsOn": [
+                "[variables('eventHubNamespaceName')]"
+              ],
+              "properties": {
+                "messageRetentionInDays": 3,
+                "partitionCount": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "functionAppDeployment", 
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "dependsOn": [
+        "[variables('resourceGroupName')]",
+        "storageAccountDeployment",
+        "keyVaultDeployment",
+        "eventHubDeployment"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2022-09-01",
+              "name": "[variables('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "tags": "[variables('deploymentTags')]",
+              "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+              },
+              "properties": {
+                "reserved": false
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2022-09-01",
+              "name": "[variables('functionAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[variables('deploymentTags')]",
+              "kind": "functionapp",
+              "dependsOn": [
+                "[variables('appServicePlanName')]"
+              ],
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "httpsOnly": true,
+                "siteConfig": {
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage",
+                      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~4"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "powershell"
+                    },
+                    {
+                      "name": "DECOYLAYER_RELAY_URL", 
+                      "value": "[parameters('relayOutboundUrl')]"
+                    },
+                    {
+                      "name": "DECOYLAYER_TENANT_ID",
+                      "value": "[parameters('tenantId')]"
+                    },
+                    {
+                      "name": "DECOYLAYER_DEPLOYMENT_ID",
+                      "value": "[parameters('deploymentId')]"
+                    }
+                  ],
+                  "minimumElasticInstanceCount": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[variables('resourceGroupName')]"
+    },
+    "functionAppName": {
+      "type": "string", 
+      "value": "[variables('functionAppName')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "eventHubNamespace": {
+      "type": "string",
+      "value": "[variables('eventHubNamespaceName')]"
+    },
+    "deploymentId": {
+      "type": "string",
+      "value": "[parameters('deploymentId')]"
+    },
+    "deploymentInstructions": {
+      "type": "array",
+      "value": [
+        "DecoyLayer infrastructure deployed successfully!",
+        "Next steps:",
+        "1. Copy the deployment ID and configure it in DecoyLayer portal",
+        "2. Test the Function health endpoint",
+        "3. Verify alert delivery within 5 minutes",
+        "4. Configure additional decoy features as needed",
+        "",
+        "For support, visit https://docs.decoylayer.com"
+      ]
+    }
+  }
+}
