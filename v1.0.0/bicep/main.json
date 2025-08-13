@@ -127,6 +127,12 @@
               }
             }
           ]
+        },
+        "outputs": {
+          "storageConnectionString": {
+            "type": "string", 
+            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+          }
         }
       }
     },
@@ -224,6 +230,12 @@
               }
             }
           ]
+        },
+        "outputs": {
+          "eventHubConnectionString": {
+            "type": "string",
+            "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
+          }
         }
       }
     },
@@ -278,7 +290,7 @@
                   "appSettings": [
                     {
                       "name": "AzureWebJobsStorage",
-                      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+                      "value": "[reference('storageAccountDeployment').outputs.storageConnectionString.value]"
                     },
                     {
                       "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -306,7 +318,7 @@
                     },
                     {
                       "name": "EVENTHUB_CONNECTION_STRING",
-                      "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
+                      "value": "[reference('eventHubDeployment').outputs.eventHubConnectionString.value]"
                     },
                     {
                       "name": "KEY_VAULT_NAME",
