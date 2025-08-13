@@ -13,6 +13,15 @@
         "description": "Target tenant ID for validation and decoy deployment"
       }
     },
+    "resourceSuffix": {
+      "type": "string",
+      "defaultValue": "",
+      "minLength": 0,
+      "maxLength": 6,
+      "metadata": {
+        "description": "Optional suffix for resource names (max 6 chars, alphanumeric). Use to ensure unique names when recreating resources."
+      }
+    },
     "location": {
       "type": "string",
       "defaultValue": "westeurope",
@@ -56,7 +65,7 @@
     },
     "deploymentId": {
       "type": "string",
-      "defaultValue": "[uniqueString(parameters('tenantId'))]",
+      "defaultValue": "[uniqueString(parameters('tenantId'), parameters('resourceSuffix'))]",
       "metadata": {
         "description": "Unique deployment identifier"
       }
@@ -74,14 +83,14 @@
     }
   },
   "variables": {
-    "resourceGroupName": "[concat('dl-', uniqueString(parameters('tenantId')), '-rg')]",
-    "keyVaultName": "[concat('dl-', uniqueString(parameters('tenantId')), '-kv')]",
-    "keyVaultUri": "[concat('https://', concat('dl-', uniqueString(parameters('tenantId')), '-kv'), '.vault.azure.net/')]",
-    "eventHubNamespaceName": "[concat('dl-', uniqueString(parameters('tenantId')), '-ehns')]",
+    "resourceGroupName": "[concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-rg')]",
+    "keyVaultName": "[concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-kv')]",
+    "keyVaultUri": "[concat('https://', concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-kv'), '.vault.azure.net/')]",
+    "eventHubNamespaceName": "[concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-ehns')]",
     "eventHubName": "decoylayer-logs",
-    "functionAppName": "[concat('dl-', uniqueString(parameters('tenantId')), '-func')]",
-    "storageAccountName": "[concat('dl', uniqueString(parameters('tenantId')), 'st')]",
-    "appServicePlanName": "[concat('dl-', uniqueString(parameters('tenantId')), '-plan')]",
+    "functionAppName": "[concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-func')]",
+    "storageAccountName": "[concat('dl', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), 'st')]",
+    "appServicePlanName": "[concat('dl-', uniqueString(parameters('tenantId'), parameters('resourceSuffix')), '-plan')]",
     "deploymentTags": "[union(parameters('tags'), createObject('DeploymentId', parameters('deploymentId')))]"
   },
   "resources": [
