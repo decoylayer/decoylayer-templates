@@ -298,13 +298,26 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
+          "parameters": {
+            "appServicePlanName": { "type": "string" },
+            "functionAppName": { "type": "string" },
+            "location": { "type": "string" },
+            "deploymentTags": { "type": "object" },
+            "keyVaultName": { "type": "string" },
+            "keyVaultUri": { "type": "string" },
+            "relayOutboundUrl": { "type": "string" },
+            "deploymentId": { "type": "string" },
+            "hmacKey": { "type": "securestring" },
+            "storageConnectionString": { "type": "string" },
+            "eventHubConnectionString": { "type": "string" }
+          },
           "resources": [
             {
               "type": "Microsoft.Web/serverfarms",
               "apiVersion": "2022-09-01",
-              "name": "[variables('appServicePlanName')]",
+              "name": "[parameters('appServicePlanName')]",
               "location": "[parameters('location')]",
-              "tags": "[variables('deploymentTags')]",
+              "tags": "[parameters('deploymentTags')]",
               "sku": {
                 "name": "Y1",
                 "tier": "Dynamic"
@@ -316,24 +329,24 @@
             {
               "type": "Microsoft.Web/sites",
               "apiVersion": "2022-09-01",
-              "name": "[variables('functionAppName')]",
+              "name": "[parameters('functionAppName')]",
               "location": "[parameters('location')]",
-              "tags": "[variables('deploymentTags')]",
+              "tags": "[parameters('deploymentTags')]",
               "kind": "functionapp",
               "dependsOn": [
-                "[variables('appServicePlanName')]"
+                "[parameters('appServicePlanName')]"
               ],
               "identity": {
                 "type": "SystemAssigned"
               },
               "properties": {
-                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
                 "httpsOnly": true,
                 "siteConfig": {
                   "appSettings": [
                     {
                       "name": "AzureWebJobsStorage",
-                      "value": "[reference('storageAccountDeployment').outputs.storageConnectionString.value]"
+                      "value": "[parameters('storageConnectionString')]"
                     },
                     {
                       "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -361,15 +374,15 @@
                     },
                     {
                       "name": "EVENTHUB_CONNECTION_STRING",
-                      "value": "[reference('eventHubDeployment').outputs.eventHubConnectionString.value]"
+                      "value": "[parameters('eventHubConnectionString')]"
                     },
                     {
                       "name": "KEY_VAULT_NAME",
-                      "value": "[variables('keyVaultName')]"
+                      "value": "[parameters('keyVaultName')]"
                     },
                     {
                       "name": "HMAC_SECRET",
-                      "value": "[concat('@Microsoft.KeyVault(SecretUri=', variables('keyVaultUri'), 'secrets/dl-hmac/)')]"
+                      "value": "[concat('@Microsoft.KeyVault(SecretUri=', parameters('keyVaultUri'), 'secrets/dl-hmac/)')]"
                     }
                   ],
                   "minimumElasticInstanceCount": 0
@@ -377,6 +390,19 @@
               }
             }
           ]
+        },
+        "parameters": {
+          "appServicePlanName": { "value": "[variables('appServicePlanName')]" },
+          "functionAppName": { "value": "[variables('functionAppName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "deploymentTags": { "value": "[variables('deploymentTags')]" },
+          "keyVaultName": { "value": "[variables('keyVaultName')]" },
+          "keyVaultUri": { "value": "[variables('keyVaultUri')]" },
+          "relayOutboundUrl": { "value": "[parameters('relayOutboundUrl')]" },
+          "deploymentId": { "value": "[parameters('deploymentId')]" },
+          "hmacKey": { "value": "[parameters('hmacKey')]" },
+          "storageConnectionString": { "value": "[reference('storageAccountDeployment').outputs.storageConnectionString.value]" },
+          "eventHubConnectionString": { "value": "[reference('eventHubDeployment').outputs.eventHubConnectionString.value]" }
         }
       }
     }
