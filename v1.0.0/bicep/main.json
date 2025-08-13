@@ -115,13 +115,18 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
+          "parameters": {
+            "storageAccountName": { "type": "string" },
+            "location": { "type": "string" },
+            "deploymentTags": { "type": "object" }
+          },
           "resources": [
             {
               "type": "Microsoft.Storage/storageAccounts",
               "apiVersion": "2023-01-01",
-              "name": "[variables('storageAccountName')]",
+              "name": "[parameters('storageAccountName')]",
               "location": "[parameters('location')]",
-              "tags": "[variables('deploymentTags')]",
+              "tags": "[parameters('deploymentTags')]",
               "sku": {
                 "name": "Standard_LRS"
               },
@@ -135,13 +140,18 @@
                 }
               }
             }
-          ]
-        },
-        "outputs": {
-          "storageConnectionString": {
-            "type": "string", 
-            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+          ],
+          "outputs": {
+            "storageConnectionString": {
+              "type": "string", 
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value)]"
+            }
           }
+        },
+        "parameters": {
+          "storageAccountName": { "value": "[variables('storageAccountName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "deploymentTags": { "value": "[variables('deploymentTags')]" }
         }
       }
     },
@@ -158,13 +168,19 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
+          "parameters": {
+            "keyVaultName": { "type": "string" },
+            "location": { "type": "string" },
+            "deploymentTags": { "type": "object" },
+            "tenantId": { "type": "string" }
+          },
           "resources": [
             {
               "type": "Microsoft.KeyVault/vaults",
               "apiVersion": "2023-02-01",
-              "name": "[variables('keyVaultName')]",
+              "name": "[parameters('keyVaultName')]",
               "location": "[parameters('location')]",
-              "tags": "[variables('deploymentTags')]",
+              "tags": "[parameters('deploymentTags')]",
               "properties": {
                 "sku": {
                   "family": "A",
@@ -182,6 +198,12 @@
               }
             }
           ]
+        },
+        "parameters": {
+          "keyVaultName": { "value": "[variables('keyVaultName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "deploymentTags": { "value": "[variables('deploymentTags')]" },
+          "tenantId": { "value": "[parameters('tenantId')]" }
         }
       }
     },
@@ -198,13 +220,19 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
+          "parameters": {
+            "eventHubNamespaceName": { "type": "string" },
+            "eventHubName": { "type": "string" },
+            "location": { "type": "string" },
+            "deploymentTags": { "type": "object" }
+          },
           "resources": [
             {
               "type": "Microsoft.EventHub/namespaces",
               "apiVersion": "2022-10-01-preview",
-              "name": "[variables('eventHubNamespaceName')]",
+              "name": "[parameters('eventHubNamespaceName')]",
               "location": "[parameters('location')]",
-              "tags": "[variables('deploymentTags')]",
+              "tags": "[parameters('deploymentTags')]",
               "sku": {
                 "name": "Standard",
                 "tier": "Standard",
@@ -218,9 +246,9 @@
             {
               "type": "Microsoft.EventHub/namespaces/eventhubs",
               "apiVersion": "2022-10-01-preview",
-              "name": "[concat(variables('eventHubNamespaceName'), '/', variables('eventHubName'))]",
+              "name": "[concat(parameters('eventHubNamespaceName'), '/', parameters('eventHubName'))]",
               "dependsOn": [
-                "[variables('eventHubNamespaceName')]"
+                "[parameters('eventHubNamespaceName')]"
               ],
               "properties": {
                 "messageRetentionInDays": 3,
@@ -230,21 +258,27 @@
             {
               "type": "Microsoft.EventHub/namespaces/authorizationRules",
               "apiVersion": "2022-10-01-preview",
-              "name": "[concat(variables('eventHubNamespaceName'), '/listen')]",
+              "name": "[concat(parameters('eventHubNamespaceName'), '/listen')]",
               "dependsOn": [
-                "[variables('eventHubNamespaceName')]"
+                "[parameters('eventHubNamespaceName')]"
               ],
               "properties": {
                 "rights": ["Listen"]
               }
             }
-          ]
-        },
-        "outputs": {
-          "eventHubConnectionString": {
-            "type": "string",
-            "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
+          ],
+          "outputs": {
+            "eventHubConnectionString": {
+              "type": "string",
+              "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
+            }
           }
+        },
+        "parameters": {
+          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
+          "eventHubName": { "value": "[variables('eventHubName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "deploymentTags": { "value": "[variables('deploymentTags')]" }
         }
       }
     },
