@@ -269,8 +269,9 @@
           "deploymentTags": { "value": "[variables('deploymentTags')]" }
         }
       }
-    },
-    {
+    }
+    /* Commented out for testing - Function App deployment causes listKeys() issues
+    ,{
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "functionAppDeployment", 
@@ -396,6 +397,7 @@
         }
       }
     }
+    */ // End of commented Function App deployment
   ],
   "outputs": {
     "resourceGroupName": {
