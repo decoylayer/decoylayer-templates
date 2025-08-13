@@ -140,13 +140,7 @@
                 }
               }
             }
-          ],
-          "outputs": {
-            "storageConnectionString": {
-              "type": "string", 
-              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value)]"
-            }
-          }
+          ]
         },
         "parameters": {
           "storageAccountName": { "value": "[variables('storageAccountName')]" },
@@ -266,13 +260,7 @@
                 "rights": ["Listen"]
               }
             }
-          ],
-          "outputs": {
-            "eventHubConnectionString": {
-              "type": "string",
-              "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
-            }
-          }
+          ]
         },
         "parameters": {
           "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
@@ -308,8 +296,8 @@
             "relayOutboundUrl": { "type": "string" },
             "deploymentId": { "type": "string" },
             "hmacKey": { "type": "securestring" },
-            "storageConnectionString": { "type": "string" },
-            "eventHubConnectionString": { "type": "string" }
+            "storageAccountName": { "type": "string" },
+            "eventHubNamespaceName": { "type": "string" }
           },
           "resources": [
             {
@@ -346,7 +334,7 @@
                   "appSettings": [
                     {
                       "name": "AzureWebJobsStorage",
-                      "value": "[parameters('storageConnectionString')]"
+                      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value)]"
                     },
                     {
                       "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -374,7 +362,7 @@
                     },
                     {
                       "name": "EVENTHUB_CONNECTION_STRING",
-                      "value": "[parameters('eventHubConnectionString')]"
+                      "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
                     },
                     {
                       "name": "KEY_VAULT_NAME",
@@ -401,8 +389,8 @@
           "relayOutboundUrl": { "value": "[parameters('relayOutboundUrl')]" },
           "deploymentId": { "value": "[parameters('deploymentId')]" },
           "hmacKey": { "value": "[parameters('hmacKey')]" },
-          "storageConnectionString": { "value": "[reference('storageAccountDeployment').outputs.storageConnectionString.value]" },
-          "eventHubConnectionString": { "value": "[reference('eventHubDeployment').outputs.eventHubConnectionString.value]" }
+          "storageAccountName": { "value": "[variables('storageAccountName')]" },
+          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" }
         }
       }
     }
