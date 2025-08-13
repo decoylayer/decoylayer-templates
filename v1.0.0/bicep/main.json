@@ -51,7 +51,7 @@
     },
     "relayOutboundUrl": {
       "type": "string",
-      "defaultValue": "https://portal.decoylayer.com/ingest",
+      "defaultValue": "https://api-dev.decoylayer.com/ingest",
       "metadata": {
         "description": "DecoyLayer ingest endpoint URL"
       }
@@ -131,7 +131,8 @@
             "tenantId": { "type": "string" },
             "relayOutboundUrl": { "type": "string" },
             "deploymentId": { "type": "string" },
-            "hmacKey": { "type": "securestring" }
+            "hmacKey": { "type": "securestring" },
+            "features": { "type": "object" }
           },
           "resources": [
             {
@@ -283,12 +284,43 @@
                       "value": "[parameters('keyVaultName')]"
                     },
                     {
+                      "name": "DECOYLAYER_FEATURES",
+                      "value": "[string(parameters('features'))]"
+                    },
+                    {
                       "name": "HMAC_SECRET",
                       "value": "[concat('@Microsoft.KeyVault(SecretUri=', parameters('keyVaultUri'), 'secrets/dl-hmac/)')]"
                     }
                   ],
                   "minimumElasticInstanceCount": 0
                 }
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-02-01",
+              "name": "[concat(parameters('keyVaultName'), '/dl-hmac')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+                "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+              ],
+              "properties": {
+                "value": "[parameters('hmacKey')]"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), '4633458b-17de-408a-b874-0445c86b69e6')]",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+                "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+              ],
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2022-09-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
               }
             }
           ]
@@ -306,7 +338,8 @@
           "tenantId": { "value": "[parameters('tenantId')]" },
           "relayOutboundUrl": { "value": "[parameters('relayOutboundUrl')]" },
           "deploymentId": { "value": "[parameters('deploymentId')]" },
-          "hmacKey": { "value": "[parameters('hmacKey')]" }
+          "hmacKey": { "value": "[parameters('hmacKey')]" },
+          "features": { "value": "[parameters('features')]" }
         }
       }
     }
@@ -335,15 +368,29 @@
     "deploymentInstructions": {
       "type": "array",
       "value": [
-        "DecoyLayer infrastructure deployed successfully!",
-        "Next steps:",
-        "1. Copy the deployment ID and configure it in DecoyLayer portal",
-        "2. Test the Function health endpoint",
-        "3. Verify alert delivery within 5 minutes",
-        "4. Configure additional decoy features as needed",
+        "✅ DecoyLayer infrastructure deployed successfully!",
         "",
-        "For support, visit https://docs.decoylayer.com"
+        "📋 Deployment Summary:",
+        "[concat('• Resource Group: ', variables('resourceGroupName'))]",
+        "[concat('• Function App: ', variables('functionAppName'))]",
+        "[concat('• Deployment ID: ', parameters('deploymentId'))]",
+        "[concat('• Features Enabled: ', string(parameters('features')))]",
+        "",
+        "🔗 Next Steps:",
+        "1. Return to DecoyLayer Portal and verify deployment status",
+        "2. Test Function heartbeat endpoint (may take 2-3 minutes to be ready)",
+        "3. Verify first alerts appear within 5-10 minutes",
+        "4. Review Features tab to enable additional decoys",
+        "",
+        "🛟 Support:",
+        "• Documentation: https://docs.decoylayer.com",
+        "• Status Page: https://status.decoylayer.com",
+        "• Support Portal: https://support.decoylayer.com"
       ]
+    },
+    "heartbeatUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('functionAppName'), '.azurewebsites.net/api/heartbeat')]"
     }
   }
 }
