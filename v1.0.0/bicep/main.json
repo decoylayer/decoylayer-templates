@@ -105,7 +105,7 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
-      "name": "storageAccountDeployment",
+      "name": "allResourcesDeployment",
       "resourceGroup": "[variables('resourceGroupName')]",
       "dependsOn": [
         "[variables('resourceGroupName')]"
@@ -120,8 +120,18 @@
           "contentVersion": "1.0.0.0",
           "parameters": {
             "storageAccountName": { "type": "string" },
+            "keyVaultName": { "type": "string" },
+            "keyVaultUri": { "type": "string" },
+            "eventHubNamespaceName": { "type": "string" },
+            "eventHubName": { "type": "string" },
+            "appServicePlanName": { "type": "string" },
+            "functionAppName": { "type": "string" },
             "location": { "type": "string" },
-            "deploymentTags": { "type": "object" }
+            "deploymentTags": { "type": "object" },
+            "tenantId": { "type": "string" },
+            "relayOutboundUrl": { "type": "string" },
+            "deploymentId": { "type": "string" },
+            "hmacKey": { "type": "securestring" }
           },
           "resources": [
             {
@@ -142,39 +152,7 @@
                   "defaultAction": "Allow"
                 }
               }
-            }
-          ]
-        },
-        "parameters": {
-          "storageAccountName": { "value": "[variables('storageAccountName')]" },
-          "location": { "value": "[parameters('location')]" },
-          "deploymentTags": { "value": "[variables('deploymentTags')]" }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deployments", 
-      "apiVersion": "2022-09-01",
-      "name": "keyVaultDeployment",
-      "resourceGroup": "[variables('resourceGroupName')]",
-      "dependsOn": [
-        "[variables('resourceGroupName')]"
-      ],
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "parameters": {
-            "keyVaultName": { "type": "string" },
-            "location": { "type": "string" },
-            "deploymentTags": { "type": "object" },
-            "tenantId": { "type": "string" }
-          },
-          "resources": [
+            },
             {
               "type": "Microsoft.KeyVault/vaults",
               "apiVersion": "2023-02-01",
@@ -196,40 +174,7 @@
                   "bypass": "AzureServices"
                 }
               }
-            }
-          ]
-        },
-        "parameters": {
-          "keyVaultName": { "value": "[variables('keyVaultName')]" },
-          "location": { "value": "[parameters('location')]" },
-          "deploymentTags": { "value": "[variables('deploymentTags')]" },
-          "tenantId": { "value": "[parameters('tenantId')]" }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01", 
-      "name": "eventHubDeployment",
-      "resourceGroup": "[variables('resourceGroupName')]",
-      "dependsOn": [
-        "[variables('resourceGroupName')]"
-      ],
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "parameters": {
-            "eventHubNamespaceName": { "type": "string" },
-            "eventHubName": { "type": "string" },
-            "location": { "type": "string" },
-            "deploymentTags": { "type": "object" }
-          },
-          "resources": [
+            },
             {
               "type": "Microsoft.EventHub/namespaces",
               "apiVersion": "2022-10-01-preview",
@@ -268,49 +213,7 @@
               "properties": {
                 "rights": ["Listen"]
               }
-            }
-          ]
-        },
-        "parameters": {
-          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
-          "eventHubName": { "value": "[variables('eventHubName')]" },
-          "location": { "value": "[parameters('location')]" },
-          "deploymentTags": { "value": "[variables('deploymentTags')]" }
-        }
-      }
-    }
-    /* Commented out for testing - Function App deployment causes listKeys() issues
-    ,{
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
-      "name": "functionAppDeployment", 
-      "resourceGroup": "[variables('resourceGroupName')]",
-      "dependsOn": [
-        "[variables('resourceGroupName')]",
-        "storageAccountDeployment",
-        "keyVaultDeployment",
-        "eventHubDeployment"
-      ],
-      "properties": {
-        "mode": "Incremental",
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "parameters": {
-            "appServicePlanName": { "type": "string" },
-            "functionAppName": { "type": "string" },
-            "location": { "type": "string" },
-            "deploymentTags": { "type": "object" },
-            "keyVaultName": { "type": "string" },
-            "keyVaultUri": { "type": "string" },
-            "relayOutboundUrl": { "type": "string" },
-            "deploymentId": { "type": "string" },
-            "hmacKey": { "type": "securestring" },
-            "storageAccountName": { "type": "string" },
-            "eventHubNamespaceName": { "type": "string" },
-            "tenantId": { "type": "string" }
-          },
-          "resources": [
+            },
             {
               "type": "Microsoft.Web/serverfarms",
               "apiVersion": "2022-09-01",
@@ -391,22 +294,22 @@
           ]
         },
         "parameters": {
+          "storageAccountName": { "value": "[variables('storageAccountName')]" },
+          "keyVaultName": { "value": "[variables('keyVaultName')]" },
+          "keyVaultUri": { "value": "[variables('keyVaultUri')]" },
+          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
+          "eventHubName": { "value": "[variables('eventHubName')]" },
           "appServicePlanName": { "value": "[variables('appServicePlanName')]" },
           "functionAppName": { "value": "[variables('functionAppName')]" },
           "location": { "value": "[parameters('location')]" },
           "deploymentTags": { "value": "[variables('deploymentTags')]" },
-          "keyVaultName": { "value": "[variables('keyVaultName')]" },
-          "keyVaultUri": { "value": "[variables('keyVaultUri')]" },
+          "tenantId": { "value": "[parameters('tenantId')]" },
           "relayOutboundUrl": { "value": "[parameters('relayOutboundUrl')]" },
           "deploymentId": { "value": "[parameters('deploymentId')]" },
-          "hmacKey": { "value": "[parameters('hmacKey')]" },
-          "storageAccountName": { "value": "[variables('storageAccountName')]" },
-          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
-          "tenantId": { "value": "[parameters('tenantId')]" }
+          "hmacKey": { "value": "[parameters('hmacKey')]" }
         }
       }
     }
-    */ // End of commented Function App deployment
   ],
   "outputs": {
     "resourceGroupName": {
