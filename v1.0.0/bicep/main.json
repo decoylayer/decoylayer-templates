@@ -211,6 +211,17 @@
                 "messageRetentionInDays": 3,
                 "partitionCount": 2
               }
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/authorizationRules",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[concat(variables('eventHubNamespaceName'), '/listen')]",
+              "dependsOn": [
+                "[variables('eventHubNamespaceName')]"
+              ],
+              "properties": {
+                "rights": ["Listen"]
+              }
             }
           ]
         }
@@ -267,7 +278,7 @@
                   "appSettings": [
                     {
                       "name": "AzureWebJobsStorage",
-                      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+                      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId(variables('resourceGroupName'), 'Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
                     },
                     {
                       "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -295,7 +306,7 @@
                     },
                     {
                       "name": "EVENTHUB_CONNECTION_STRING",
-                      "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2023-11-01-preview').primaryKey)]"
+                      "value": "[concat('Endpoint=sb://', variables('eventHubNamespaceName'), '.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey=', listKeys(resourceId(variables('resourceGroupName'), 'Microsoft.EventHub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'listen'), '2022-10-01-preview').primaryKey)]"
                     },
                     {
                       "name": "KEY_VAULT_NAME",
