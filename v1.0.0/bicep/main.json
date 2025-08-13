@@ -297,7 +297,8 @@
             "deploymentId": { "type": "string" },
             "hmacKey": { "type": "securestring" },
             "storageAccountName": { "type": "string" },
-            "eventHubNamespaceName": { "type": "string" }
+            "eventHubNamespaceName": { "type": "string" },
+            "tenantId": { "type": "string" }
           },
           "resources": [
             {
@@ -322,7 +323,7 @@
               "tags": "[parameters('deploymentTags')]",
               "kind": "functionapp",
               "dependsOn": [
-                "[parameters('appServicePlanName')]"
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
               ],
               "identity": {
                 "type": "SystemAssigned"
@@ -390,7 +391,8 @@
           "deploymentId": { "value": "[parameters('deploymentId')]" },
           "hmacKey": { "value": "[parameters('hmacKey')]" },
           "storageAccountName": { "value": "[variables('storageAccountName')]" },
-          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" }
+          "eventHubNamespaceName": { "value": "[variables('eventHubNamespaceName')]" },
+          "tenantId": { "value": "[parameters('tenantId')]" }
         }
       }
     }
