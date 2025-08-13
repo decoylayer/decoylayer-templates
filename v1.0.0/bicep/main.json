@@ -61,6 +61,13 @@
         "description": "Unique deployment identifier"
       }
     },
+    "deploymentTimestamp": {
+      "type": "string",
+      "defaultValue": "[utcNow()]",
+      "metadata": {
+        "description": "Deployment timestamp"
+      }
+    },
     "tags": {
       "type": "object",
       "defaultValue": {
@@ -82,7 +89,7 @@
     "functionAppName": "[concat('dl-', uniqueString(parameters('tenantId')), '-func')]",
     "storageAccountName": "[concat('dl', uniqueString(parameters('tenantId')), 'st')]",
     "appServicePlanName": "[concat('dl-', uniqueString(parameters('tenantId')), '-plan')]",
-    "deploymentTags": "[union(parameters('tags'), createObject('DeploymentId', parameters('deploymentId'), 'CreatedAt', utcNow()))]"
+    "deploymentTags": "[union(parameters('tags'), createObject('DeploymentId', parameters('deploymentId'), 'CreatedAt', parameters('deploymentTimestamp')))]"
   },
   "resources": [
     {
