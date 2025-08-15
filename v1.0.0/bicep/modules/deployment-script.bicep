@@ -171,8 +171,8 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 @secure()
 output hmacKey string = deploymentScript.properties.outputs.hmacKey
 
-@description('Created decoy application IDs')
-output decoyAppIds array = deploymentScript.properties.outputs.decoyAppIds
+@description('Infrastructure setup completed')
+output infrastructureReady bool = deploymentScript.properties.outputs.infrastructureReady
 
 @description('Deployment script result')
 output result object = deploymentScript.properties.outputs.result

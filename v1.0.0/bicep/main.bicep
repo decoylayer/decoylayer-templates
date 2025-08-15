@@ -181,8 +181,8 @@ output eventHubId string = eventHub.outputs.eventHubId
 @description('Deployment ID for tracking')
 output deploymentId string = deploymentId
 
-@description('Created decoy application IDs')
-output decoyAppIds array = decoySetup.outputs.decoyAppIds
+@description('Infrastructure deployment completed')
+output infrastructureReady bool = decoySetup.outputs.infrastructureReady
 
 @description('HMAC key for DecoyLayer settings (save immediately)')
 @secure()

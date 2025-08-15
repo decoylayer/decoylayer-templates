@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "8741980664384960754"
+      "templateHash": "2312123041413744215"
     }
   },
   "parameters": {
@@ -963,7 +963,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "17635708608602816931"
+              "templateHash": "11180803217125723500"
             }
           },
           "parameters": {
@@ -1075,12 +1075,12 @@
               },
               "value": "[reference('deploymentScript').outputs.hmacKey]"
             },
-            "decoyAppIds": {
-              "type": "array",
+            "infrastructureReady": {
+              "type": "bool",
               "metadata": {
-                "description": "Created decoy application IDs"
+                "description": "Infrastructure setup completed"
               },
-              "value": "[reference('deploymentScript').outputs.decoyAppIds]"
+              "value": "[reference('deploymentScript').outputs.infrastructureReady]"
             },
             "result": {
               "type": "object",
@@ -1236,12 +1236,12 @@
       },
       "value": "[parameters('deploymentId')]"
     },
-    "decoyAppIds": {
-      "type": "array",
+    "infrastructureReady": {
+      "type": "bool",
       "metadata": {
-        "description": "Created decoy application IDs"
+        "description": "Infrastructure deployment completed"
       },
-      "value": "[reference('decoySetup').outputs.decoyAppIds.value]"
+      "value": "[reference('decoySetup').outputs.infrastructureReady.value]"
     },
     "hmacKey": {
       "type": "securestring",
