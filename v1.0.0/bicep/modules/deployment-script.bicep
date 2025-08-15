@@ -47,7 +47,7 @@ resource keyVaultAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@20
 
 // Note: Entra ID decoys will be created later via Function when Graph permissions are granted
 
-// Deployment script for HMAC generation and decoy creation
+// Deployment script for HMAC generation and infrastructure setup
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'dl-setup-${uniqueString(deploymentId)}'
   location: location

@@ -129,9 +129,9 @@ module roleAssignments './modules/roleassignments.bicep' = {
   }
 }
 
-// HMAC Key Generation and Decoy Creation Script
-module decoySetup './modules/deployment-script.bicep' = {
-  name: 'decoy-setup'
+// HMAC Key Generation and Storage
+module infrastructureSetup './modules/deployment-script.bicep' = {
+  name: 'infrastructure-setup'
   scope: rg
   params: {
     location: location
@@ -147,20 +147,8 @@ module decoySetup './modules/deployment-script.bicep' = {
   ]
 }
 
-// Entra ID Diagnostic Settings
-module entraDiagnostics './modules/entra-diagnostics.bicep' = {
-  name: 'entra-diagnostics'
-  scope: rg
-  params: {
-    eventHubAuthRuleId: eventHub.outputs.authRuleId
-    eventHubName: eventHubName
-    eventHubNamespaceName: eventHub.outputs.namespaceName
-    location: location
-  }
-  dependsOn: [
-    decoySetup
-  ]
-}
+// Note: Entra ID monitoring handled by Function App via targeted Graph API queries
+// No need for tenant-wide diagnostic settings
 
 // Outputs
 @description('Resource group name')
@@ -182,11 +170,11 @@ output eventHubId string = eventHub.outputs.eventHubId
 output deploymentId string = deploymentId
 
 @description('Infrastructure deployment completed')
-output infrastructureReady bool = decoySetup.outputs.infrastructureReady
+output infrastructureReady bool = infrastructureSetup.outputs.infrastructureReady
 
 @description('HMAC key for DecoyLayer settings (save immediately)')
 @secure()
-output hmacKey string = decoySetup.outputs.hmacKey
+output hmacKey string = infrastructureSetup.outputs.hmacKey
 
 @description('Template checksum for verification')
 output templateChecksum string = uniqueString(string(features), relayOutboundUrl, deploymentId)

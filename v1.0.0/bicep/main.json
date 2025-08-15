@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "2312123041413744215"
+      "templateHash": "4542913278278498611"
     }
   },
   "parameters": {
@@ -922,10 +922,10 @@
         "rg"
       ]
     },
-    "decoySetup": {
+    "infrastructureSetup": {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
-      "name": "decoy-setup",
+      "name": "infrastructure-setup",
       "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1098,99 +1098,6 @@
         "rg",
         "roleAssignments"
       ]
-    },
-    "entraDiagnostics": {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
-      "name": "entra-diagnostics",
-      "resourceGroup": "[variables('resourceGroupName')]",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "eventHubAuthRuleId": {
-            "value": "[reference('eventHub').outputs.authRuleId.value]"
-          },
-          "eventHubName": {
-            "value": "[variables('eventHubName')]"
-          },
-          "eventHubNamespaceName": {
-            "value": "[reference('eventHub').outputs.namespaceName.value]"
-          },
-          "location": {
-            "value": "[parameters('location')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.37.4.10188",
-              "templateHash": "14070409042843611975"
-            }
-          },
-          "parameters": {
-            "eventHubAuthRuleId": {
-              "type": "string",
-              "metadata": {
-                "description": "Event Hub authorization rule ID"
-              }
-            },
-            "eventHubName": {
-              "type": "string",
-              "metadata": {
-                "description": "Event Hub name"
-              }
-            },
-            "eventHubNamespaceName": {
-              "type": "string",
-              "metadata": {
-                "description": "Event Hub namespace name"
-              }
-            },
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region"
-              }
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.Resources/deploymentScripts",
-              "apiVersion": "2023-08-01",
-              "name": "entra-diagnostics-setup",
-              "location": "[parameters('location')]",
-              "kind": "AzureCLI",
-              "properties": {
-                "azCliVersion": "2.50.0",
-                "timeout": "PT10M",
-                "retentionInterval": "PT1H",
-                "arguments": "[format('{0} {1} {2}', parameters('eventHubAuthRuleId'), parameters('eventHubName'), parameters('eventHubNamespaceName'))]",
-                "scriptContent": "      #!/bin/bash\n      set -e\n      \n      AUTH_RULE_ID=$1\n      EVENT_HUB_NAME=$2\n      NAMESPACE_NAME=$3\n      \n      echo \"Configuring Entra ID diagnostic settings...\"\n      echo \"Event Hub Auth Rule ID: $AUTH_RULE_ID\"\n      echo \"Event Hub Name: $EVENT_HUB_NAME\"\n      echo \"Namespace Name: $NAMESPACE_NAME\"\n      \n      # Get access token for Microsoft Graph\n      echo \"Getting access token for Microsoft Graph...\"\n      TOKEN=$(az account get-access-token --resource https://graph.microsoft.com --query accessToken -o tsv)\n      \n      # Prepare diagnostic settings payload\n      PAYLOAD=$(cat <<EOF\n      {\n        \"name\": \"DecoylayerDiagnostics\",\n        \"eventHubAuthorizationRuleId\": \"$AUTH_RULE_ID\",\n        \"eventHubName\": \"$EVENT_HUB_NAME\",\n        \"logs\": [\n          {\n            \"category\": \"AuditLogs\",\n            \"enabled\": true,\n            \"retentionPolicy\": {\n              \"enabled\": false,\n              \"days\": 0\n            }\n          },\n          {\n            \"category\": \"SignInLogs\",\n            \"enabled\": true,\n            \"retentionPolicy\": {\n              \"enabled\": false,\n              \"days\": 0\n            }\n          },\n          {\n            \"category\": \"NonInteractiveUserSignInLogs\",\n            \"enabled\": true,\n            \"retentionPolicy\": {\n              \"enabled\": false,\n              \"days\": 0\n            }\n          },\n          {\n            \"category\": \"ServicePrincipalSignInLogs\",\n            \"enabled\": true,\n            \"retentionPolicy\": {\n              \"enabled\": false,\n              \"days\": 0\n            }\n          }\n        ]\n      }\nEOF\n      )\n      \n      echo \"Payload: $PAYLOAD\"\n      \n      # Configure diagnostic settings using the Graph API\n      echo \"Creating diagnostic settings...\"\n      \n      # Use the Azure Monitor API for AAD diagnostic settings\n      RESPONSE=$(curl -s -X PUT \\\n        -H \"Authorization: Bearer $TOKEN\" \\\n        -H \"Content-Type: application/json\" \\\n        -d \"$PAYLOAD\" \\\n        \"https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/DecoylayerDiagnostics?api-version=2021-05-01-preview\")\n      \n      echo \"Response: $RESPONSE\"\n      \n      # Check if the request was successful\n      if echo \"$RESPONSE\" | grep -q '\"name\"'; then\n        echo \"Diagnostic settings configured successfully!\"\n      else\n        echo \"Warning: Could not configure diagnostic settings via API\"\n        echo \"This may need to be configured manually in the Azure portal:\"\n        echo \"1. Go to Azure Active Directory > Monitoring > Diagnostic settings\"\n        echo \"2. Create a new diagnostic setting\"\n        echo \"3. Select all log categories (AuditLogs, SignInLogs, etc.)\"\n        echo \"4. Set destination to Event Hub: $NAMESPACE_NAME/$EVENT_HUB_NAME\"\n        echo \"Response was: $RESPONSE\"\n      fi\n      \n      # Alternative: Use Microsoft Graph Change Notifications as fallback\n      echo \"Note: If diagnostic settings are not available, the Function will configure\"\n      echo \"Microsoft Graph Change Notifications as an alternative data source.\"\n    "
-              }
-            }
-          ],
-          "outputs": {
-            "result": {
-              "type": "string",
-              "metadata": {
-                "description": "Diagnostic settings configuration result"
-              },
-              "value": "Entra ID diagnostic settings configuration attempted. Check deployment script output for status."
-            }
-          }
-        }
-      },
-      "dependsOn": [
-        "decoySetup",
-        "eventHub",
-        "rg"
-      ]
     }
   },
   "outputs": {
@@ -1241,14 +1148,14 @@
       "metadata": {
         "description": "Infrastructure deployment completed"
       },
-      "value": "[reference('decoySetup').outputs.infrastructureReady.value]"
+      "value": "[reference('infrastructureSetup').outputs.infrastructureReady.value]"
     },
     "hmacKey": {
       "type": "securestring",
       "metadata": {
         "description": "HMAC key for DecoyLayer settings (save immediately)"
       },
-      "value": "[listOutputsWithSecureValues('decoySetup', '2022-09-01').hmacKey]"
+      "value": "[listOutputsWithSecureValues('infrastructureSetup', '2022-09-01').hmacKey]"
     },
     "templateChecksum": {
       "type": "string",
