@@ -71,11 +71,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet'
-        }
-        {
-          name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '~18'
+          value: 'dotnet-isolated'
         }
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -124,7 +120,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         supportCredentials: false
       }
       use32BitWorkerProcess: false
-      netFrameworkVersion: 'v6.0'
+      netFrameworkVersion: 'v8.0'
     }
   }
 }
