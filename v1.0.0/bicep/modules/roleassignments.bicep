@@ -1,5 +1,3 @@
-@description('Role assignments for Function App managed identity')
-
 @description('Function App managed identity principal ID')
 param functionPrincipalId string
 

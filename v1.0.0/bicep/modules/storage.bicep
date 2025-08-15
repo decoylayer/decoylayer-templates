@@ -1,5 +1,3 @@
-@description('Storage Account for Function App')
-
 @description('Storage account name')
 param name string
 

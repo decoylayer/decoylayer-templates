@@ -1,5 +1,3 @@
-@description('Azure Function App for DecoyLayer Controller')
-
 @description('Function App name')
 param name string
 
@@ -21,6 +19,9 @@ param eventHubConnectionString string
 
 @description('DecoyLayer ingest endpoint URL')
 param relayOutboundUrl string
+
+@description('DecoyLayer customer tenant ID for API validation')
+param decoyLayerTenantId string
 
 @description('Resource tags')
 param tags object
@@ -86,6 +87,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: relayOutboundUrl
         }
         {
+          name: 'DECOYLAYER_TENANT_ID'
+          value: decoyLayerTenantId
+        }
+        {
           name: 'EVENTHUB_CONNECTION_STRING'
           value: eventHubConnectionString
         }
@@ -109,7 +114,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: '1'
+          value: 'https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller.zip'
         }
       ]
       cors: {

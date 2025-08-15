@@ -1,5 +1,3 @@
-@description('Event Hub for receiving Azure AD audit and sign-in logs')
-
 @description('Event Hub namespace name')
 param namespaceName string
 

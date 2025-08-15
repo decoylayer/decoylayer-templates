@@ -1,5 +1,3 @@
-@description('Key Vault for storing HMAC keys and secrets')
-
 @description('Key Vault name')
 param name string
 

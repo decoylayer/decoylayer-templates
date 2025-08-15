@@ -1,11 +1,10 @@
-@description('DecoyLayer Infrastructure-as-Code Main Template')
-@description('Deploys customer-owned components: Function, Event Hub, Key Vault, and decoy objects')
+// DecoyLayer Infrastructure-as-Code Main Template - Deploys customer-owned components: Function, Event Hub, Key Vault, and decoy objects
 
 targetScope = 'subscription'
 
 // Parameters
-@description('Target tenant ID for validation and decoy deployment')
-param tenantId string
+@description('DecoyLayer customer tenant ID for API validation and alert routing')
+param decoyLayerTenantId string
 
 @description('Azure region for resource deployment')
 param location string = 'westeurope'
@@ -35,16 +34,16 @@ param tags object = {
 }
 
 @description('Unique deployment identifier')
-param deploymentId string = uniqueString(tenantId, utcNow())
+param deploymentId string = uniqueString(decoyLayerTenantId, utcNow())
 
 // Variables
-var resourceGroupName = 'dl-${uniqueString(tenantId)}-rg'
-var keyVaultName = 'dl-${uniqueString(tenantId)}-kv'
-var eventHubNamespaceName = 'dl-${uniqueString(tenantId)}-ehns'
+var resourceGroupName = 'dl-${uniqueString(decoyLayerTenantId)}-rg'
+var keyVaultName = 'dl-${uniqueString(decoyLayerTenantId)}-kv'
+var eventHubNamespaceName = 'dl-${uniqueString(decoyLayerTenantId)}-ehns'
 var eventHubName = 'decoylayer-logs'
-var functionAppName = 'dl-${uniqueString(tenantId)}-func'
-var storageAccountName = 'dl${uniqueString(tenantId)}st'
-var appServicePlanName = 'dl-${uniqueString(tenantId)}-plan'
+var functionAppName = 'dl-${uniqueString(decoyLayerTenantId)}-func'
+var storageAccountName = 'dl${uniqueString(decoyLayerTenantId)}st'
+var appServicePlanName = 'dl-${uniqueString(decoyLayerTenantId)}-plan'
 
 // Resource Group
 resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
@@ -72,7 +71,7 @@ module keyVault './modules/keyvault.bicep' = {
     name: keyVaultName
     location: location
     tags: tags
-    tenantId: tenantId
+    tenantId: subscription().tenantId  // Use Azure subscription tenant, not customer tenant
   }
 }
 
@@ -111,6 +110,7 @@ module functionApp './modules/function.bicep' = {
     keyVaultName: keyVault.outputs.name
     eventHubConnectionString: eventHub.outputs.connectionString
     relayOutboundUrl: relayOutboundUrl
+    decoyLayerTenantId: decoyLayerTenantId
     tags: tags
   }
 }
@@ -147,11 +147,12 @@ module decoySetup './modules/deployment-script.bicep' = {
 // Entra ID Diagnostic Settings
 module entraDiagnostics './modules/entra-diagnostics.bicep' = {
   name: 'entra-diagnostics'
-  scope: subscription()
+  scope: rg
   params: {
     eventHubAuthRuleId: eventHub.outputs.authRuleId
     eventHubName: eventHubName
     eventHubNamespaceName: eventHub.outputs.namespaceName
+    location: location
   }
   dependsOn: [
     decoySetup

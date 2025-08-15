@@ -1,5 +1,3 @@
-@description('Configure Entra ID diagnostic settings to stream logs to Event Hub')
-
 @description('Event Hub authorization rule ID')
 param eventHubAuthRuleId string
 
@@ -9,11 +7,14 @@ param eventHubName string
 @description('Event Hub namespace name')
 param eventHubNamespaceName string
 
+@description('Azure region')
+param location string
+
 // Note: Entra ID diagnostic settings cannot be created via ARM/Bicep as they are tenant-level resources
 // This deployment script configures the diagnostic settings using the Graph API
 resource entraDiagnosticsScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'entra-diagnostics-setup'
-  location: deployment().location
+  location: location
   kind: 'AzureCLI'
   properties: {
     azCliVersion: '2.50.0'

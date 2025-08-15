@@ -1,5 +1,3 @@
-@description('App Service Plan for Function App (Consumption)')
-
 @description('App Service Plan name')
 param name string
 
