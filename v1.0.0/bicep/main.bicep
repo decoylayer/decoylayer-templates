@@ -20,7 +20,7 @@ param features object = {
 }
 
 @description('DecoyLayer ingest endpoint URL')
-param relayOutboundUrl string = 'https://portal.decoylayer.com/ingest'
+param relayOutboundUrl string = 'https://api-dev.decoylayer.com/ingest'
 
 @description('HMAC key for signing alerts (generated if not provided)')
 @secure()

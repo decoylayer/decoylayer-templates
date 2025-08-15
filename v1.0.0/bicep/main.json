@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "4542913278278498611"
+      "templateHash": "11852516717877193835"
     }
   },
   "parameters": {
@@ -39,7 +39,7 @@
     },
     "relayOutboundUrl": {
       "type": "string",
-      "defaultValue": "https://portal.decoylayer.com/ingest",
+      "defaultValue": "https://api-dev.decoylayer.com/ingest",
       "metadata": {
         "description": "DecoyLayer ingest endpoint URL"
       }
@@ -640,7 +640,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "4094069004098560586"
+              "templateHash": "16077285039616658961"
             }
           },
           "parameters": {
@@ -739,11 +739,7 @@
                     },
                     {
                       "name": "FUNCTIONS_WORKER_RUNTIME",
-                      "value": "dotnet"
-                    },
-                    {
-                      "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                      "value": "~18"
+                      "value": "dotnet-isolated"
                     },
                     {
                       "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -789,7 +785,7 @@
                     "supportCredentials": false
                   },
                   "use32BitWorkerProcess": false,
-                  "netFrameworkVersion": "v6.0"
+                  "netFrameworkVersion": "v8.0"
                 }
               }
             }
