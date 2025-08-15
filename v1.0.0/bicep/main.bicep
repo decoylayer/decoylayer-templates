@@ -26,6 +26,9 @@ param relayOutboundUrl string = 'https://portal.decoylayer.com/ingest'
 @secure()
 param hmacKey string = ''
 
+@description('Resource suffix for unique naming')
+param resourceSuffix string = ''
+
 @description('Resource tags')
 param tags object = {
   Product: 'DecoyLayer'
@@ -34,16 +37,16 @@ param tags object = {
 }
 
 @description('Unique deployment identifier')
-param deploymentId string = uniqueString(decoyLayerTenantId, utcNow())
+param deploymentId string = uniqueString(decoyLayerTenantId, resourceSuffix, utcNow())
 
 // Variables
-var resourceGroupName = 'dl-${uniqueString(decoyLayerTenantId)}-rg'
-var keyVaultName = 'dl-${uniqueString(decoyLayerTenantId)}-kv'
-var eventHubNamespaceName = 'dl-${uniqueString(decoyLayerTenantId)}-ehns'
+var resourceGroupName = 'dl-${uniqueString(decoyLayerTenantId, resourceSuffix)}-rg'
+var keyVaultName = 'dl-${uniqueString(decoyLayerTenantId, resourceSuffix)}-kv'
+var eventHubNamespaceName = 'dl-${uniqueString(decoyLayerTenantId, resourceSuffix)}-ehns'
 var eventHubName = 'decoylayer-logs'
-var functionAppName = 'dl-${uniqueString(decoyLayerTenantId)}-func'
-var storageAccountName = 'dl${uniqueString(decoyLayerTenantId)}st'
-var appServicePlanName = 'dl-${uniqueString(decoyLayerTenantId)}-plan'
+var functionAppName = 'dl-${uniqueString(decoyLayerTenantId, resourceSuffix)}-func'
+var storageAccountName = 'dl${uniqueString(decoyLayerTenantId, resourceSuffix)}st'
+var appServicePlanName = 'dl-${uniqueString(decoyLayerTenantId, resourceSuffix)}-plan'
 
 // Resource Group
 resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {

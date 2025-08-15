@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "16437549384157541932"
+      "templateHash": "10519914619155696345"
     }
   },
   "parameters": {
@@ -51,6 +51,13 @@
         "description": "HMAC key for signing alerts (generated if not provided)"
       }
     },
+    "resourceSuffix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource suffix for unique naming"
+      }
+    },
     "tags": {
       "type": "object",
       "defaultValue": {
@@ -64,20 +71,20 @@
     },
     "deploymentId": {
       "type": "string",
-      "defaultValue": "[uniqueString(parameters('decoyLayerTenantId'), utcNow())]",
+      "defaultValue": "[uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix'), utcNow())]",
       "metadata": {
         "description": "Unique deployment identifier"
       }
     }
   },
   "variables": {
-    "resourceGroupName": "[format('dl-{0}-rg', uniqueString(parameters('decoyLayerTenantId')))]",
-    "keyVaultName": "[format('dl-{0}-kv', uniqueString(parameters('decoyLayerTenantId')))]",
-    "eventHubNamespaceName": "[format('dl-{0}-ehns', uniqueString(parameters('decoyLayerTenantId')))]",
+    "resourceGroupName": "[format('dl-{0}-rg', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "keyVaultName": "[format('dl-{0}-kv', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "eventHubNamespaceName": "[format('dl-{0}-ehns', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
     "eventHubName": "decoylayer-logs",
-    "functionAppName": "[format('dl-{0}-func', uniqueString(parameters('decoyLayerTenantId')))]",
-    "storageAccountName": "[format('dl{0}st', uniqueString(parameters('decoyLayerTenantId')))]",
-    "appServicePlanName": "[format('dl-{0}-plan', uniqueString(parameters('decoyLayerTenantId')))]"
+    "functionAppName": "[format('dl-{0}-func', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "storageAccountName": "[format('dl{0}st', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "appServicePlanName": "[format('dl-{0}-plan', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]"
   },
   "resources": {
     "rg": {
