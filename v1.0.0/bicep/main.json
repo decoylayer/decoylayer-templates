@@ -266,7 +266,7 @@
                     },
                     {
                       "name": "WEBSITE_RUN_FROM_PACKAGE", 
-                      "value": "https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller-v1.1.zip"
+                      "value": "https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller-v1.2.zip"
                     },
                     {
                       "name": "DECOYLAYER_INGEST_URL",
