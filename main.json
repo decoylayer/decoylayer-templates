@@ -1,0 +1,1177 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.37.4.10188",
+      "templateHash": "4179411687708299293"
+    }
+  },
+  "parameters": {
+    "decoyLayerTenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "DecoyLayer customer tenant ID for API validation and alert routing"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westeurope",
+      "metadata": {
+        "description": "Azure region for resource deployment"
+      }
+    },
+    "features": {
+      "type": "object",
+      "defaultValue": {
+        "identity_decoys": true,
+        "mailbox_bec": false,
+        "sharepoint_docs": false,
+        "teams_trap": false,
+        "keyvault_honey": false,
+        "devops_tokens": false
+      },
+      "metadata": {
+        "description": "Feature toggles for different decoy types"
+      }
+    },
+    "relayOutboundUrl": {
+      "type": "string",
+      "defaultValue": "https://portal.decoylayer.com/ingest",
+      "metadata": {
+        "description": "DecoyLayer ingest endpoint URL"
+      }
+    },
+    "hmacKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "HMAC key for signing alerts (generated if not provided)"
+      }
+    },
+    "resourceSuffix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource suffix for unique naming"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "Product": "DecoyLayer",
+        "Environment": "Customer",
+        "ManagedBy": "DecoyLayer"
+      },
+      "metadata": {
+        "description": "Resource tags"
+      }
+    },
+    "deploymentId": {
+      "type": "string",
+      "defaultValue": "[uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix'), utcNow())]",
+      "metadata": {
+        "description": "Unique deployment identifier"
+      }
+    }
+  },
+  "variables": {
+    "resourceGroupName": "[format('dl-{0}-rg', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "keyVaultName": "[format('dl-{0}-kv', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "eventHubNamespaceName": "[format('dl-{0}-ehns', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "eventHubName": "decoylayer-logs",
+    "functionAppName": "[format('dl-{0}-func', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "storageAccountName": "[format('dl{0}st', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]",
+    "appServicePlanName": "[format('dl-{0}-plan', uniqueString(parameters('decoyLayerTenantId'), parameters('resourceSuffix')))]"
+  },
+  "resources": {
+    "rg": {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]"
+    },
+    "storage": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "storage",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('storageAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "12579624015594066573"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": true,
+                "networkAcls": {
+                  "defaultAction": "Allow"
+                },
+                "encryption": {
+                  "services": {
+                    "file": {
+                      "keyType": "Account",
+                      "enabled": true
+                    },
+                    "blob": {
+                      "keyType": "Account",
+                      "enabled": true
+                    }
+                  },
+                  "keySource": "Microsoft.Storage"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              },
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account ID"
+              },
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+            },
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Primary connection string"
+              },
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', parameters('name'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), '2023-01-01').keys[0].value)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "keyVault": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "keyvault",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('keyVaultName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "tenantId": {
+            "value": "[subscription().tenantId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "7731371545395932988"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "tenantId": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure AD tenant ID"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-02-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "tenantId": "[parameters('tenantId')]",
+                "enabledForDeployment": false,
+                "enabledForTemplateDeployment": true,
+                "enabledForDiskEncryption": false,
+                "enableRbacAuthorization": true,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 7,
+                "enablePurgeProtection": true,
+                "publicNetworkAccess": "Enabled",
+                "networkAcls": {
+                  "defaultAction": "Allow",
+                  "bypass": "AzureServices"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault name"
+              },
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault ID"
+              },
+              "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('name'))]"
+            },
+            "vaultUri": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault URI"
+              },
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('name')), '2023-02-01').vaultUri]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "eventHub": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "eventhub",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "namespaceName": {
+            "value": "[variables('eventHubNamespaceName')]"
+          },
+          "eventHubName": {
+            "value": "[variables('eventHubName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "8315156366176569619"
+            }
+          },
+          "parameters": {
+            "namespaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub namespace name"
+              }
+            },
+            "eventHubName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.EventHub/namespaces",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[parameters('namespaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Standard",
+                "capacity": 1
+              },
+              "properties": {
+                "minimumTlsVersion": "1.2",
+                "publicNetworkAccess": "Enabled",
+                "disableLocalAuth": false,
+                "zoneRedundant": false,
+                "kafkaEnabled": false
+              }
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[format('{0}/{1}', parameters('namespaceName'), parameters('eventHubName'))]",
+              "properties": {
+                "messageRetentionInDays": 1,
+                "partitionCount": 2,
+                "status": "Active"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/authorizationRules",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[format('{0}/{1}', parameters('namespaceName'), 'SendRule')]",
+              "properties": {
+                "rights": [
+                  "Send"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/authorizationRules",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('namespaceName'), parameters('eventHubName'), 'ListenRule')]",
+              "properties": {
+                "rights": [
+                  "Listen"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaceName'), parameters('eventHubName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('namespaceName'), parameters('eventHubName'), 'decoylayer-function')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaceName'), parameters('eventHubName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "namespaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub namespace name"
+              },
+              "value": "[parameters('namespaceName')]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub name"
+              },
+              "value": "[parameters('eventHubName')]"
+            },
+            "eventHubId": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub resource ID"
+              },
+              "value": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaceName'), parameters('eventHubName'))]"
+            },
+            "authRuleId": {
+              "type": "string",
+              "metadata": {
+                "description": "Send authorization rule ID for diagnostic settings"
+              },
+              "value": "[resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaceName'), 'SendRule')]"
+            },
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Listen connection string for Function"
+              },
+              "value": "[listKeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', parameters('namespaceName'), parameters('eventHubName'), 'ListenRule'), '2022-10-01-preview').primaryConnectionString]"
+            },
+            "consumerGroupName": {
+              "type": "string",
+              "metadata": {
+                "description": "Consumer group name"
+              },
+              "value": "decoylayer-function"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "appServicePlan": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "appserviceplan",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('appServicePlanName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "9891795949435089423"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "App Service Plan name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+              },
+              "kind": "functionapp",
+              "properties": {
+                "reserved": false
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "App Service Plan ID"
+              },
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "App Service Plan name"
+              },
+              "value": "[parameters('name')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "rg"
+      ]
+    },
+    "functionApp": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "functionapp",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('functionAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference('appServicePlan').outputs.id.value]"
+          },
+          "storageAccountName": {
+            "value": "[reference('storage').outputs.name.value]"
+          },
+          "keyVaultName": {
+            "value": "[reference('keyVault').outputs.name.value]"
+          },
+          "eventHubConnectionString": {
+            "value": "[reference('eventHub').outputs.connectionString.value]"
+          },
+          "relayOutboundUrl": {
+            "value": "[parameters('relayOutboundUrl')]"
+          },
+          "decoyLayerTenantId": {
+            "value": "[parameters('decoyLayerTenantId')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "16077285039616658961"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "appServicePlanId": {
+              "type": "string",
+              "metadata": {
+                "description": "App Service Plan ID"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault name"
+              }
+            },
+            "eventHubConnectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Event Hub connection string"
+              }
+            },
+            "relayOutboundUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "DecoyLayer ingest endpoint URL"
+              }
+            },
+            "decoyLayerTenantId": {
+              "type": "string",
+              "metadata": {
+                "description": "DecoyLayer customer tenant ID for API validation"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "functionapp",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "httpsOnly": true,
+                "clientAffinityEnabled": false,
+                "siteConfig": {
+                  "ftpsState": "Disabled",
+                  "minTlsVersion": "1.2",
+                  "scmMinTlsVersion": "1.2",
+                  "http20Enabled": true,
+                  "functionAppScaleLimit": 10,
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', parameters('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', parameters('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTSHARE",
+                      "value": "[toLower(parameters('name'))]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~4"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "dotnet-isolated"
+                    },
+                    {
+                      "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                      "value": ""
+                    },
+                    {
+                      "name": "DECOYLAYER_INGEST_URL",
+                      "value": "[parameters('relayOutboundUrl')]"
+                    },
+                    {
+                      "name": "DECOYLAYER_TENANT_ID",
+                      "value": "[parameters('decoyLayerTenantId')]"
+                    },
+                    {
+                      "name": "EVENTHUB_CONNECTION_STRING",
+                      "value": "[parameters('eventHubConnectionString')]"
+                    },
+                    {
+                      "name": "KEY_VAULT_NAME",
+                      "value": "[parameters('keyVaultName')]"
+                    },
+                    {
+                      "name": "HMAC_SECRET",
+                      "value": "[format('@Microsoft.KeyVault(SecretUri={0}secrets/dl-hmac/)', reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), '2023-02-01').vaultUri)]"
+                    },
+                    {
+                      "name": "DECOY_APP_IDS",
+                      "value": ""
+                    },
+                    {
+                      "name": "WEBSITE_ENABLE_SYNC_UPDATE_SITE",
+                      "value": "true"
+                    },
+                    {
+                      "name": "WEBSITE_RUN_FROM_PACKAGE",
+                      "value": "https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller.zip"
+                    }
+                  ],
+                  "cors": {
+                    "allowedOrigins": [
+                      "https://portal.azure.com"
+                    ],
+                    "supportCredentials": false
+                  },
+                  "use32BitWorkerProcess": false,
+                  "netFrameworkVersion": "v8.0"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App name"
+              },
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App ID"
+              },
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            },
+            "functionUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App default hostname"
+              },
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01').defaultHostName)]"
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App managed identity principal ID"
+              },
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "appServicePlan",
+        "eventHub",
+        "keyVault",
+        "rg",
+        "storage"
+      ]
+    },
+    "roleAssignments": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "roleassignments",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "functionPrincipalId": {
+            "value": "[reference('functionApp').outputs.principalId.value]"
+          },
+          "keyVaultName": {
+            "value": "[reference('keyVault').outputs.name.value]"
+          },
+          "eventHubNamespaceName": {
+            "value": "[reference('eventHub').outputs.namespaceName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "13812739158516877809"
+            }
+          },
+          "parameters": {
+            "functionPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App managed identity principal ID"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault name"
+              }
+            },
+            "eventHubNamespaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub namespace name"
+              }
+            }
+          },
+          "variables": {
+            "keyVaultSecretsUserRoleId": "4633458b-17de-408a-b874-0445c86b69e6",
+            "eventHubsDataReceiverRoleId": "a638d3c7-ab3a-418d-83e6-5f17a39d4fde"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.KeyVault/vaults/{0}', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('functionPrincipalId'), variables('keyVaultSecretsUserRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('keyVaultSecretsUserRoleId'))]",
+                "principalId": "[parameters('functionPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.EventHub/namespaces/{0}', parameters('eventHubNamespaceName'))]",
+              "name": "[guid(resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName')), parameters('functionPrincipalId'), variables('eventHubsDataReceiverRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('eventHubsDataReceiverRoleId'))]",
+                "principalId": "[parameters('functionPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "eventHub",
+        "functionApp",
+        "keyVault",
+        "rg"
+      ]
+    },
+    "infrastructureSetup": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "infrastructure-setup",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "keyVaultName": {
+            "value": "[reference('keyVault').outputs.name.value]"
+          },
+          "functionPrincipalId": {
+            "value": "[reference('functionApp').outputs.principalId.value]"
+          },
+          "features": {
+            "value": "[parameters('features')]"
+          },
+          "hmacKey": {
+            "value": "[parameters('hmacKey')]"
+          },
+          "deploymentId": {
+            "value": "[parameters('deploymentId')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "languageVersion": "2.0",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "11180803217125723500"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault name"
+              }
+            },
+            "functionPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App managed identity principal ID"
+              }
+            },
+            "features": {
+              "type": "object",
+              "metadata": {
+                "description": "Feature configuration"
+              }
+            },
+            "hmacKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Pre-generated HMAC key (optional)"
+              }
+            },
+            "deploymentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment identifier"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "keyVaultAdministratorRoleId": "00482a5a-887f-4fb3-b363-3b7fe8e74483"
+          },
+          "resources": {
+            "keyVault": {
+              "existing": true,
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-02-01",
+              "name": "[parameters('keyVaultName')]"
+            },
+            "scriptIdentity": {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('dl-deploy-{0}', uniqueString(parameters('deploymentId')))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            "keyVaultAdminRoleAssignment": {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.KeyVault/vaults/{0}', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('dl-deploy-{0}', uniqueString(parameters('deploymentId')))), variables('keyVaultAdministratorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('keyVaultAdministratorRoleId'))]",
+                "principalId": "[reference('scriptIdentity').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "scriptIdentity"
+              ]
+            },
+            "deploymentScript": {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('dl-setup-{0}', uniqueString(parameters('deploymentId')))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "AzurePowerShell",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('dl-deploy-{0}', uniqueString(parameters('deploymentId')))))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "9.0",
+                "timeout": "PT30M",
+                "retentionInterval": "PT1H",
+                "arguments": "[format('-KeyVaultName \"{0}\" -FunctionPrincipalId \"{1}\" -Features \"{2}\" -HmacKey \"{3}\" -DeploymentId \"{4}\"', parameters('keyVaultName'), parameters('functionPrincipalId'), base64(string(parameters('features'))), parameters('hmacKey'), parameters('deploymentId'))]",
+                "scriptContent": "      param(\n        [string]$KeyVaultName,\n        [string]$FunctionPrincipalId,\n        [string]$Features,\n        [string]$HmacKey,\n        [string]$DeploymentId\n      )\n\n      # Import required modules for infrastructure setup\n      Import-Module Az.Accounts -Force\n      Import-Module Az.KeyVault -Force\n\n      Write-Output \"Starting DecoyLayer infrastructure setup for deployment: $DeploymentId\"\n\n      try {\n        # Verify Azure context\n        $context = Get-AzContext\n        Write-Output \"Authenticated as: $($context.Account.Id)\"\n        Write-Output \"Tenant: $($context.Tenant.Id)\"\n\n        # Parse features for logging\n        $featuresJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($Features))\n        $featuresObj = ConvertFrom-Json $featuresJson\n        Write-Output \"Features selected: $featuresJson\"\n\n        # Generate HMAC key if not provided\n        if ([string]::IsNullOrEmpty($HmacKey)) {\n          Write-Output \"Generating HMAC key...\"\n          $hmacBytes = New-Object byte[] 32\n          $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider\n          $rng.GetBytes($hmacBytes)\n          $HmacKey = [Convert]::ToBase64String($hmacBytes)\n          $rng.Dispose()\n          Write-Output \"HMAC key generated successfully\"\n        } else {\n          Write-Output \"Using provided HMAC key\"\n        }\n\n        # Store HMAC in Key Vault\n        Write-Output \"Storing HMAC key in Key Vault: $KeyVaultName\"\n        $secret = ConvertTo-SecureString -String $HmacKey -AsPlainText -Force\n        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name \"dl-hmac\" -SecretValue $secret -ContentType \"text/plain\"\n        Write-Output \"HMAC key stored successfully\"\n\n        # Log feature configuration - actual decoy creation happens later via Function\n        Write-Output \"Infrastructure deployment complete. Feature configuration:\"\n        if ($featuresObj.identity_decoys -eq $true) {\n          Write-Output \"  ✓ Identity decoys: Will be created when Graph permissions are granted\"\n        }\n        if ($featuresObj.mailbox_bec -eq $true) {\n          Write-Output \"  ✓ Mailbox decoys: Will be configured by Function during initialization\"\n        }\n        if ($featuresObj.sharepoint_docs -eq $true) {\n          Write-Output \"  ✓ SharePoint decoys: Will be configured by Function during initialization\"\n        }\n        if ($featuresObj.teams_trap -eq $true) {\n          Write-Output \"  ✓ Teams traps: Will be configured by Function during initialization\"\n        }\n        if ($featuresObj.keyvault_honey -eq $true) {\n          Write-Output \"  ✓ Key Vault honey tokens: Will be created by Function during initialization\"\n        }\n        if ($featuresObj.devops_tokens -eq $true) {\n          Write-Output \"  ✓ DevOps tokens: Will be configured by Function during initialization\"\n        }\n\n        # Output results\n        $result = @{\n          hmacKey = $HmacKey\n          deploymentId = $DeploymentId\n          featuresConfigured = $featuresObj\n          timestamp = (Get-Date).ToString(\"yyyy-MM-dd HH:mm:ss UTC\")\n          infrastructureReady = $true\n        }\n\n        Write-Output \"Infrastructure setup completed successfully!\"\n        Write-Output \"HMAC Key stored in Key Vault: $KeyVaultName\"\n        Write-Output \"Function can now start and send health pings\"\n\n        # Return structured output\n        $DeploymentScriptOutputs = @{\n          result = $result\n          hmacKey = $HmacKey\n          infrastructureReady = $true\n        }\n\n      } catch {\n        Write-Error \"Setup failed: $($_.Exception.Message)\"\n        Write-Error $_.Exception.StackTrace\n        throw\n      } finally {\n        # Disconnect from Graph\n        try {\n          Disconnect-MgGraph -ErrorAction SilentlyContinue\n        } catch {}\n      }\n    "
+              },
+              "dependsOn": [
+                "keyVaultAdminRoleAssignment",
+                "scriptIdentity"
+              ]
+            }
+          },
+          "outputs": {
+            "hmacKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Generated HMAC key"
+              },
+              "value": "[reference('deploymentScript').outputs.hmacKey]"
+            },
+            "infrastructureReady": {
+              "type": "bool",
+              "metadata": {
+                "description": "Infrastructure setup completed"
+              },
+              "value": "[reference('deploymentScript').outputs.infrastructureReady]"
+            },
+            "result": {
+              "type": "object",
+              "metadata": {
+                "description": "Deployment script result"
+              },
+              "value": "[reference('deploymentScript').outputs.result]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "functionApp",
+        "keyVault",
+        "rg",
+        "roleAssignments"
+      ]
+    }
+  },
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group name"
+      },
+      "value": "[variables('resourceGroupName')]"
+    },
+    "functionName": {
+      "type": "string",
+      "metadata": {
+        "description": "Function app name"
+      },
+      "value": "[reference('functionApp').outputs.name.value]"
+    },
+    "functionUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Function app URL"
+      },
+      "value": "[reference('functionApp').outputs.functionUrl.value]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "metadata": {
+        "description": "Key Vault name"
+      },
+      "value": "[reference('keyVault').outputs.name.value]"
+    },
+    "eventHubId": {
+      "type": "string",
+      "metadata": {
+        "description": "Event Hub ID"
+      },
+      "value": "[reference('eventHub').outputs.eventHubId.value]"
+    },
+    "deploymentId": {
+      "type": "string",
+      "metadata": {
+        "description": "Deployment ID for tracking"
+      },
+      "value": "[parameters('deploymentId')]"
+    },
+    "infrastructureReady": {
+      "type": "bool",
+      "metadata": {
+        "description": "Infrastructure deployment completed"
+      },
+      "value": "[reference('infrastructureSetup').outputs.infrastructureReady.value]"
+    },
+    "hmacKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "HMAC key for DecoyLayer settings (save immediately)"
+      },
+      "value": "[listOutputsWithSecureValues('infrastructureSetup', '2022-09-01').hmacKey]"
+    },
+    "templateChecksum": {
+      "type": "string",
+      "metadata": {
+        "description": "Template checksum for verification"
+      },
+      "value": "[uniqueString(string(parameters('features')), parameters('relayOutboundUrl'), parameters('deploymentId'))]"
+    },
+    "uninstallInstructions": {
+      "type": "array",
+      "metadata": {
+        "description": "Uninstall instructions"
+      },
+      "value": [
+        "1. Run the cleanup script from the Azure Portal deployment outputs",
+        "2. Manually verify all decoy applications are removed from Entra ID",
+        "3. Check that Conditional Access policies are deleted",
+        "4. Confirm diagnostic settings are disabled",
+        "5. Delete the resource group if no other resources are present"
+      ]
+    }
+  }
+}
