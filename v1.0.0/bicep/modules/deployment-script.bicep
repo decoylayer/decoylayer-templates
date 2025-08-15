@@ -45,17 +45,7 @@ resource keyVaultAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@20
   }
 }
 
-// Application Administrator role for creating Entra apps
-var applicationAdministratorRoleId = '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'
-
-resource entraAppAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, scriptIdentity.id, applicationAdministratorRoleId)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', applicationAdministratorRoleId)
-    principalId: scriptIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// Note: Entra ID decoys will be created later via Function when Graph permissions are granted
 
 // Deployment script for HMAC generation and decoy creation
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
@@ -83,27 +73,22 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         [string]$DeploymentId
       )
 
-      # Import required modules
+      # Import required modules for infrastructure setup
       Import-Module Az.Accounts -Force
       Import-Module Az.KeyVault -Force
-      Import-Module Microsoft.Graph.Authentication -Force
-      Import-Module Microsoft.Graph.Applications -Force
-      Import-Module Microsoft.Graph.Identity.SignIns -Force
 
-      Write-Output "Starting DecoyLayer setup for deployment: $DeploymentId"
+      Write-Output "Starting DecoyLayer infrastructure setup for deployment: $DeploymentId"
 
       try {
-        # Connect to Microsoft Graph
-        Write-Output "Connecting to Microsoft Graph..."
+        # Verify Azure context
         $context = Get-AzContext
-        Connect-MgGraph -Identity -NoWelcome
-        $mgContext = Get-MgContext
-        Write-Output "Connected to Graph with tenant: $($mgContext.TenantId)"
+        Write-Output "Authenticated as: $($context.Account.Id)"
+        Write-Output "Tenant: $($context.Tenant.Id)"
 
-        # Parse features
+        # Parse features for logging
         $featuresJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($Features))
         $featuresObj = ConvertFrom-Json $featuresJson
-        Write-Output "Features to deploy: $featuresJson"
+        Write-Output "Features selected: $featuresJson"
 
         # Generate HMAC key if not provided
         if ([string]::IsNullOrEmpty($HmacKey)) {
@@ -124,129 +109,45 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "dl-hmac" -SecretValue $secret -ContentType "text/plain"
         Write-Output "HMAC key stored successfully"
 
-        # Create decoy applications
-        $decoyAppIds = @()
-        
+        # Log feature configuration - actual decoy creation happens later via Function
+        Write-Output "Infrastructure deployment complete. Feature configuration:"
         if ($featuresObj.identity_decoys -eq $true) {
-          Write-Output "Creating identity decoy applications..."
-          
-          # Create decoy apps with realistic names
-          $decoyApps = @(
-            @{ Name = "HR-Sync-Service"; Description = "Human Resources synchronization service" },
-            @{ Name = "Finance-Analytics"; Description = "Financial analytics and reporting system" },
-            @{ Name = "IT-Asset-Manager"; Description = "IT asset management and tracking" }
-          )
-
-          foreach ($app in $decoyApps) {
-            Write-Output "Creating decoy app: $($app.Name)"
-            
-            $appParams = @{
-              DisplayName = $app.Name
-              Description = $app.Description
-              SignInAudience = "AzureADMyOrg"
-              Tags = @("DecoyLayer", "IdentityDecoy", $DeploymentId)
-            }
-            
-            $newApp = New-MgApplication @appParams
-            $decoyAppIds += $newApp.AppId
-            Write-Output "Created app: $($newApp.AppId)"
-
-            # Create service principal
-            $spParams = @{
-              AppId = $newApp.AppId
-              Tags = @("DecoyLayer", "IdentityDecoy", $DeploymentId)
-            }
-            $sp = New-MgServicePrincipal @spParams
-            Write-Output "Created service principal: $($sp.Id)"
-
-            # Add Function as owner (for Application.ReadWrite.OwnedBy permissions)
-            try {
-              $ownerParams = @{
-                ApplicationId = $newApp.Id
-                BodyParameter = @{
-                  "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$FunctionPrincipalId"
-                }
-              }
-              New-MgApplicationOwner @ownerParams
-              Write-Output "Added Function as owner of app: $($newApp.AppId)"
-            } catch {
-              Write-Warning "Failed to add Function as owner: $($_.Exception.Message)"
-            }
-          }
+          Write-Output "  ✓ Identity decoys: Will be created when Graph permissions are granted"
         }
-
         if ($featuresObj.mailbox_bec -eq $true) {
-          Write-Output "Mailbox BEC feature enabled but requires Exchange Online configuration"
-          Write-Output "This will be configured by the Function during initialization"
+          Write-Output "  ✓ Mailbox decoys: Will be configured by Function during initialization"
         }
-
         if ($featuresObj.sharepoint_docs -eq $true) {
-          Write-Output "SharePoint documents feature enabled but requires SharePoint configuration"
-          Write-Output "This will be configured by the Function during initialization"
+          Write-Output "  ✓ SharePoint decoys: Will be configured by Function during initialization"
         }
-
         if ($featuresObj.teams_trap -eq $true) {
-          Write-Output "Teams trap feature enabled but requires Teams configuration"
-          Write-Output "This will be configured by the Function during initialization"
+          Write-Output "  ✓ Teams traps: Will be configured by Function during initialization"
         }
-
         if ($featuresObj.keyvault_honey -eq $true) {
-          Write-Output "Key Vault honey tokens feature enabled"
-          Write-Output "Honey token secrets will be created by the Function during initialization"
+          Write-Output "  ✓ Key Vault honey tokens: Will be created by Function during initialization"
         }
-
         if ($featuresObj.devops_tokens -eq $true) {
-          Write-Output "DevOps tokens feature enabled but requires Azure DevOps configuration"
-          Write-Output "This will be configured by the Function during initialization"
-        }
-
-        # Create Conditional Access policy to block decoy service principals
-        if ($decoyAppIds.Count -gt 0) {
-          Write-Output "Creating Conditional Access policy to block decoy tokens..."
-          
-          $policyParams = @{
-            DisplayName = "DecoyLayer - Block Token Issuance for Decoys ($DeploymentId)"
-            State = "enabled"
-            Conditions = @{
-              Applications = @{
-                IncludeApplications = $decoyAppIds
-              }
-              ClientApplications = @{
-                IncludeServicePrincipals = @("ServicePrincipalsInMyTenant")
-              }
-            }
-            GrantControls = @{
-              Operator = "OR"
-              BuiltInControls = @("block")
-            }
-          }
-          
-          try {
-            $caPolicy = New-MgIdentityConditionalAccessPolicy -BodyParameter $policyParams
-            Write-Output "Created Conditional Access policy: $($caPolicy.Id)"
-          } catch {
-            Write-Warning "Failed to create Conditional Access policy: $($_.Exception.Message)"
-            Write-Output "Manual creation of CA policy may be required"
-          }
+          Write-Output "  ✓ DevOps tokens: Will be configured by Function during initialization"
         }
 
         # Output results
         $result = @{
           hmacKey = $HmacKey
-          decoyAppIds = $decoyAppIds
           deploymentId = $DeploymentId
+          featuresConfigured = $featuresObj
           timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss UTC")
+          infrastructureReady = $true
         }
 
-        Write-Output "Setup completed successfully!"
-        Write-Output "Decoy App IDs: $($decoyAppIds -join ', ')"
-        Write-Output "HMAC Key: $HmacKey"
+        Write-Output "Infrastructure setup completed successfully!"
+        Write-Output "HMAC Key stored in Key Vault: $KeyVaultName"
+        Write-Output "Function can now start and send health pings"
 
         # Return structured output
         $DeploymentScriptOutputs = @{
           result = $result
           hmacKey = $HmacKey
-          decoyAppIds = $decoyAppIds
+          infrastructureReady = $true
         }
 
       } catch {
@@ -263,7 +164,6 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   }
   dependsOn: [
     keyVaultAdminRoleAssignment
-    entraAppAdminRoleAssignment
   ]
 }
 
