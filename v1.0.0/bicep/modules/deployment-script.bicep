@@ -63,14 +63,17 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     azPowerShellVersion: '9.0'
     timeout: 'PT30M'  // 30 minutes timeout
     retentionInterval: 'PT1H'  // Keep for 1 hour after completion
-    arguments: '-KeyVaultName "${keyVaultName}" -FunctionPrincipalId "${functionPrincipalId}" -Features "${base64(string(features))}" -HmacKey "${hmacKey}" -DeploymentId "${deploymentId}"'
+    arguments: '-KeyVaultName "${keyVaultName}" -FunctionPrincipalId "${functionPrincipalId}" -Features "${base64(string(features))}" -HmacKey "${hmacKey}" -DeploymentId "${deploymentId}" -FunctionAppName "${replace(keyVaultName, '-kv', '-func')}" -ResourceGroupName "${resourceGroup().name}" -SubscriptionId "${subscription().subscriptionId}"'
     scriptContent: '''
       param(
         [string]$KeyVaultName,
         [string]$FunctionPrincipalId,
         [string]$Features,
         [string]$HmacKey,
-        [string]$DeploymentId
+        [string]$DeploymentId,
+        [string]$FunctionAppName,
+        [string]$ResourceGroupName,
+        [string]$SubscriptionId
       )
 
       # Import required modules for infrastructure setup
@@ -108,6 +111,59 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         $secret = ConvertTo-SecureString -String $HmacKey -AsPlainText -Force
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "dl-hmac" -SecretValue $secret -ContentType "text/plain"
         Write-Output "HMAC key stored successfully"
+
+        # Sync Function Triggers (fixes Run-From-Package deployment issues)
+        Write-Output "Syncing Function triggers for: $FunctionAppName"
+        try {
+          $syncPath = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/sites/$FunctionAppName/syncfunctiontriggers"
+          $syncResult = Invoke-AzRestMethod -Method POST -Path $syncPath -ApiVersion "2021-02-01"
+          
+          if ($syncResult.StatusCode -eq 200 -or $syncResult.StatusCode -eq 204) {
+            Write-Output "Function triggers synced successfully"
+            
+            # Wait for sync to complete
+            Start-Sleep -Seconds 10
+            
+            # Warm-up call to prevent cold start errors
+            Write-Output "Performing Function warm-up call..."
+            $functionUrl = "https://$FunctionAppName.azurewebsites.net"
+            
+            # Try warm-up call with retry logic
+            $maxRetries = 3
+            $retryCount = 0
+            $warmupSuccess = $false
+            
+            while ($retryCount -lt $maxRetries -and -not $warmupSuccess) {
+              try {
+                $warmupResponse = Invoke-WebRequest -Uri "$functionUrl/admin/host/status" -Method GET -TimeoutSec 30 -ErrorAction Stop
+                if ($warmupResponse.StatusCode -eq 200) {
+                  Write-Output "Function warm-up successful (Status: $($warmupResponse.StatusCode))"
+                  $warmupSuccess = $true
+                } else {
+                  Write-Warning "Function warm-up returned status: $($warmupResponse.StatusCode)"
+                }
+              } catch {
+                $retryCount++
+                Write-Warning "Warm-up attempt $retryCount failed: $($_.Exception.Message)"
+                if ($retryCount -lt $maxRetries) {
+                  Write-Output "Retrying warm-up in 5 seconds..."
+                  Start-Sleep -Seconds 5
+                }
+              }
+            }
+            
+            if (-not $warmupSuccess) {
+              Write-Warning "Function warm-up failed after $maxRetries attempts, but this is not critical for deployment success"
+            }
+            
+          } else {
+            Write-Warning "Function trigger sync returned unexpected status: $($syncResult.StatusCode)"
+            Write-Warning "Response: $($syncResult.Content)"
+          }
+        } catch {
+          Write-Warning "Failed to sync function triggers: $($_.Exception.Message)"
+          Write-Warning "This may cause initial Function portal errors, but Function will work after refresh"
+        }
 
         # Log feature configuration - actual decoy creation happens later via Function
         Write-Output "Infrastructure deployment complete. Feature configuration:"

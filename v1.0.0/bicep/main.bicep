@@ -116,6 +116,12 @@ module functionApp './modules/function.bicep' = {
     decoyLayerTenantId: decoyLayerTenantId
     tags: tags
   }
+  dependsOn: [
+    storage
+    keyVault
+    eventHub
+    appServicePlan
+  ]
 }
 
 // Role Assignments
@@ -143,7 +149,8 @@ module infrastructureSetup './modules/deployment-script.bicep' = {
     tags: tags
   }
   dependsOn: [
-    roleAssignments
+    functionApp  // Ensure Function App is fully deployed before running setup script
+    roleAssignments  // Ensure all permissions are set up
   ]
 }
 
