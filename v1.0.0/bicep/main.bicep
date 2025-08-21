@@ -149,7 +149,7 @@ module infrastructureSetup './modules/deployment-script.bicep' = {
     tags: tags
   }
   dependsOn: [
-    functionApp  // Ensure Function App is fully deployed before running setup script
+    functionApp  // Ensure Function App is created
     roleAssignments  // Ensure all permissions are set up
   ]
 }

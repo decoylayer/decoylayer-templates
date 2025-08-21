@@ -52,67 +52,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       scmMinTlsVersion: '1.2'
       http20Enabled: true
       functionAppScaleLimit: 10  // Limit scale for cost control
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
-        }
-        {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
-        }
-        {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: toLower(name)
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet-isolated'
-        }
-        {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: ''  // Can be added later if needed
-        }
-        // DecoyLayer specific settings
-        {
-          name: 'DECOYLAYER_INGEST_URL'
-          value: relayOutboundUrl
-        }
-        {
-          name: 'DECOYLAYER_TENANT_ID'
-          value: decoyLayerTenantId
-        }
-        {
-          name: 'EVENTHUB_CONNECTION_STRING'
-          value: eventHubConnectionString
-        }
-        {
-          name: 'KEY_VAULT_NAME'
-          value: keyVaultName
-        }
-        {
-          name: 'HMAC_SECRET'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVault.properties.vaultUri}secrets/dl-hmac/)'
-        }
-        // Will be populated by deployment script
-        {
-          name: 'DECOY_APP_IDS'
-          value: ''
-        }
-        // Security settings
-        {
-          name: 'WEBSITE_ENABLE_SYNC_UPDATE_SITE'
-          value: 'true'
-        }
-        {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: 'https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller.zip'
-        }
-      ]
       cors: {
         allowedOrigins: [
           'https://portal.azure.com'
@@ -122,6 +61,43 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       use32BitWorkerProcess: false
       netFrameworkVersion: 'v8.0'
     }
+  }
+}
+
+// Function App Settings - Applied as separate resource for proper startup order
+resource functionAppSettings 'Microsoft.Web/sites/config@2023-01-01' = {
+  parent: functionApp
+  name: 'appsettings'
+  properties: {
+    // Core Function settings - MUST be present at startup
+    FUNCTIONS_EXTENSION_VERSION: '~4'
+    FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
+    
+    // Azure WebJobs Storage
+    AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
+    WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
+    WEBSITE_CONTENTSHARE: toLower(name)
+    
+    // Application Insights (optional)
+    APPINSIGHTS_INSTRUMENTATIONKEY: ''
+    
+    // Critical startup settings to prevent "InternalServerError from host runtime"
+    WEBSITE_ENABLE_SYNC_UPDATE_SITE: 'true'
+    WEBSITE_START_SCM_ON_SITE_CREATION: '1'  // Pre-starts Kudu/SCM
+    WEBSITE_USE_PLACEHOLDER: '0'  // Reduces cold start issues
+    
+    // Run from package
+    WEBSITE_RUN_FROM_PACKAGE: 'https://raw.githubusercontent.com/decoylayer/decoylayer-templates/main/customer-function/release/decoylayer-controller.zip'
+    
+    // DecoyLayer specific settings
+    DECOYLAYER_INGEST_URL: relayOutboundUrl
+    DECOYLAYER_TENANT_ID: decoyLayerTenantId
+    EVENTHUB_CONNECTION_STRING: eventHubConnectionString
+    KEY_VAULT_NAME: keyVaultName
+    HMAC_SECRET: '@Microsoft.KeyVault(SecretUri=${keyVault.properties.vaultUri}secrets/dl-hmac/)'
+    
+    // Will be populated by deployment script
+    DECOY_APP_IDS: ''
   }
 }
 
